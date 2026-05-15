@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Bookmark Manager</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        :root {
+            --bg-color: #0a0a0a;
+            --folder-bg-color: #1a1a1a;
+            --font-color: #ffffff;
+            --lcars-color: #dd9944;
+            --folder-title-color: #000000;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-color);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--font-color);
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 24px;
+        }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .header h1:hover { opacity: 0.8; }
+
+        .header-buttons {
+            margin-top: 12px;
+        }
+
+        .btn {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 7px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            margin: 0 4px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: rgba(255,255,255,0.25); }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        /* ── FOLDER ── */
+        .folder {
+            margin-bottom: 28px;
+            position: relative;
+        }
+
+        .folder-header-wrapper {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        /* Thinner caps & bar — 26px instead of 40px */
+        .lcars-cap-left {
+            width: 44px;
+            height: 26px;
+            background: var(--lcars-color);
+            border-radius: 13px 0 0 13px;
+            flex-shrink: 0;
+        }
+
+        .lcars-cap-right {
+            width: 44px;
+            height: 26px;
+            background: var(--lcars-color);
+            border-radius: 0 13px 13px 0;
+            flex-shrink: 0;
+        }
+
+        .folder-header {
+            flex: 1;
+            height: 26px;
+            background: var(--lcars-color);
+            display: flex;
+            align-items: center;
+            padding: 0 12px;
+        }
+
+        .folder-icon {
+            font-size: 11px;
+            margin-right: 7px;
+            color: var(--folder-title-color);
+        }
+
+        .folder-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--folder-title-color);
+            flex: 1;
+        }
+
+        .folder-reorder-buttons {
+            display: flex;
+            gap: 4px;
+            margin-left: auto;
+        }
+
+        .folder-reorder-btn {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(0,0,0,0.25);
+            color: var(--folder-title-color);
+            width: 20px;
+            height: 20px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .folder-reorder-btn:hover { background: rgba(0,0,0,0.4); }
+        .folder-reorder-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        /* ── LIST ── */
+        .folder-content {
+            background: var(--folder-bg-color);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+
+        .bookmarks-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .bookmark-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 7px 14px;
+            cursor: pointer;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.15s;
+            position: relative;
+            user-select: none;
+        }
+
+        .bookmark-row:last-child { border-bottom: none; }
+
+        .bookmark-row:hover { background: rgba(255,255,255,0.06); }
+
+        .bookmark-row.dragging { opacity: 0.4; }
+
+        .bookmark-row.insert-before::before,
+        .bookmark-row.insert-after::after {
+            content: '';
+            position: absolute;
+            left: 0; right: 0;
+            height: 2px;
+            background: #2a9fc8;
+            box-shadow: 0 0 6px rgba(42,159,200,0.8);
+            z-index: 10;
+        }
+
+        .bookmark-row.insert-before::before { top: -1px; }
+        .bookmark-row.insert-after::after   { bottom: -1px; }
+
+        .bookmark-tiny-icon {
+            width: 20px;
+            height: 20px;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 14px;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+
+        .bookmark-tiny-icon img {
+            width: 16px;
+            height: 16px;
+            border-radius: 3px;
+            object-fit: contain;
+        }
+
+        .bookmark-name {
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            min-width: 120px;
+            max-width: 280px;
+            flex-shrink: 0;
+        }
+
+        .bookmark-url {
+            font-size: 11px;
+            color: rgba(255,255,255,0.35);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+
+        .drag-handle {
+            color: rgba(255,255,255,0.2);
+            font-size: 13px;
+            cursor: grab;
+            flex-shrink: 0;
+            padding: 0 2px;
+        }
+
+        .drag-handle:active { cursor: grabbing; }
+
+        .empty-folder {
+            padding: 20px;
+            text-align: center;
+            color: rgba(255,255,255,0.3);
+            font-size: 13px;
+            font-style: italic;
+        }
+
+        /* collapsible */
+        .collapsible-content {
+            max-height: 9999px;
+            overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+
+        .collapsible-content.collapsed { max-height: 0; }
+
+        /* ── CONTEXT MENU ── */
+        .context-menu {
+            position: fixed;
+            background: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 5px 0;
+            min-width: 170px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            z-index: 10000;
+            display: none;
+        }
+
+        .context-menu-item {
+            padding: 9px 18px;
+            cursor: pointer;
+            font-size: 13px;
+            color: var(--font-color);
+            display: flex;
+            align-items: center;
+        }
+
+        .context-menu-item:hover { background: #3d3d3d; }
+        .context-menu-item.danger:hover { background: #d32f2f; }
+
+        .context-menu-separator { height: 1px; background: #444; margin: 4px 0; }
+
+        /* ── MODAL ── */
+        .modal {
+            display: none;
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.7);
+            z-index: 9999;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal.active { display: flex; }
+
+        .modal-content {
+            background: #2d2d2d;
+            border-radius: 8px;
+            padding: 24px;
+            min-width: 480px;
+            max-width: 560px;
+            max-height: 85vh;
+            overflow-y: auto;
+            color: var(--font-color);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 18px;
+        }
+
+        .modal-header h2 { font-size: 16px; }
+
+        .close-btn {
+            background: none;
+            border: none;
+            color: #fff;
+            font-size: 22px;
+            cursor: pointer;
+            width: 28px;
+            height: 28px;
+            line-height: 28px;
+            text-align: center;
+            border-radius: 4px;
+        }
+
+        .close-btn:hover { background: rgba(255,255,255,0.1); }
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 6px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%;
+            padding: 9px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 5px;
+            color: var(--font-color);
+            font-size: 13px;
+        }
+
+        .form-group input:focus,
+        .form-group select:focus { outline: none; border-color: #2a9fc8; }
+
+        .info-text { font-size: 11px; color: #888; margin-top: 4px; }
+
+        .icon-options { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+
+        .icon-option {
+            padding: 6px 10px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+
+        .icon-option:hover { background: #2d2d2d; }
+        .icon-option.active { background: #2a9fc8; border-color: #2a9fc8; }
+
+        .icon-preview { display: flex; align-items: center; gap: 10px; margin-top: 10px; }
+
+        .icon-preview-box {
+            width: 48px;
+            height: 48px;
+            border: 2px dashed #444;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+
+        .icon-preview-box img { width: 32px; height: 32px; border-radius: 4px; }
+
+        .modal-footer {
+            display: flex;
+            justify-content: flex-end;
+            gap: 8px;
+            margin-top: 20px;
+        }
+
+        .btn-primary {
+            background: #2a9fc8; color: white; border: none;
+            padding: 9px 18px; border-radius: 5px; cursor: pointer; font-size: 13px;
+        }
+
+        .btn-primary:hover { background: #238bb0; }
+
+        .btn-secondary {
+            background: #444; color: white; border: none;
+            padding: 9px 18px; border-radius: 5px; cursor: pointer; font-size: 13px;
+        }
+
+        .btn-secondary:hover { background: #555; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1 id="page-title" oncontextmenu="event.preventDefault(); showTitleContextMenu(event); return false;">📋 My Bookmarks</h1>
+        <div class="header-buttons">
+            <button class="btn" onclick="addFolder()">+ New Folder</button>
+            <button class="btn" onclick="exportBookmarks()">Export</button>
+            <button class="btn" onclick="importBookmarks()">Import</button>
+            <button class="btn" onclick="openBackgroundSettings()">Background</button>
+        </div>
+    </div>
+
+    <div id="folders-container"></div>
+</div>
+
+<!-- Context Menu -->
+<div id="context-menu" class="context-menu"></div>
+
+<!-- Bookmark Modal -->
+<div id="bookmark-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">New Bookmark</h2>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="bookmark-form">
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" id="bookmark-name" required placeholder="Enter bookmark name">
+            </div>
+            <div class="form-group">
+                <label>URL</label>
+                <input type="text" id="bookmark-url" required placeholder="https://example.com or ./files/tool.html">
+                <div class="info-text">Accepts web URLs (https://...), relative paths (./files/...), or local files</div>
+            </div>
+            <div class="form-group">
+                <label>Folder</label>
+                <select id="bookmark-folder" required></select>
+            </div>
+            <div class="form-group">
+                <label>Icon</label>
+                <div class="icon-options">
+                    <div class="icon-option active" onclick="setIconType('emoji')">Emoji</div>
+                    <div class="icon-option" onclick="setIconType('upload')">Upload Image</div>
+                    <div class="icon-option" onclick="setIconType('url')">Image URL</div>
+                    <div class="icon-option" onclick="setIconType('auto')">Auto (Favicon)</div>
+                </div>
+                <div id="icon-emoji-input" style="margin-top: 8px;">
+                    <input type="text" id="bookmark-icon-emoji" placeholder="Enter emoji (e.g., 🌟)" maxlength="2">
+                </div>
+                <div id="icon-upload-input" style="margin-top: 8px; display: none;">
+                    <input type="file" id="bookmark-icon-upload" accept="image/*" onchange="handleIconUpload(event)">
+                </div>
+                <div id="icon-url-input" style="margin-top: 8px; display: none;">
+                    <input type="url" id="bookmark-icon-url" placeholder="https://example.com/icon.png">
+                </div>
+                <div class="icon-preview">
+                    <div class="icon-preview-box" id="icon-preview"></div>
+                    <span style="font-size: 11px; color: #888;">Preview</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Folder Modal -->
+<div id="folder-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="folder-modal-title">New Folder</h2>
+            <button class="close-btn" onclick="closeFolderModal()">&times;</button>
+        </div>
+        <form id="folder-form">
+            <div class="form-group">
+                <label>Folder Name</label>
+                <input type="text" id="folder-name" required placeholder="Enter folder name">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeFolderModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Background Settings Modal -->
+<div id="background-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Background &amp; Theme Settings</h2>
+            <button class="close-btn" onclick="closeBackgroundModal()">&times;</button>
+        </div>
+        <form id="background-form">
+            <div class="form-group">
+                <label>Main Background Color</label>
+                <input type="text" id="main-bg-color" placeholder="#0a0a0a" pattern="^#[0-9A-Fa-f]{6}$">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:40px;height:40px;border:2px solid #444;border-radius:4px;" id="main-bg-preview"></div>
+                    <span style="font-size:11px;color:#888;">Preview</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Folder Background Color</label>
+                <input type="text" id="folder-bg-color" placeholder="#1a1a1a" pattern="^#[0-9A-Fa-f]{6}$">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:40px;height:40px;border:2px solid #444;border-radius:4px;" id="folder-bg-preview"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>LCARS Accent Color</label>
+                <input type="text" id="lcars-color" placeholder="#dd9944" pattern="^#[0-9A-Fa-f]{6}$">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:40px;height:40px;border:2px solid #444;border-radius:4px;" id="lcars-color-preview"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Folder Title Font Color</label>
+                <input type="text" id="folder-title-color" placeholder="#000000" pattern="^#[0-9A-Fa-f]{6}$">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:40px;height:40px;border:2px solid #444;border-radius:4px;" id="folder-title-color-preview"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Content Font Color</label>
+                <input type="text" id="font-color" placeholder="#ffffff" pattern="^#[0-9A-Fa-f]{6}$">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:40px;height:40px;border:2px solid #444;border-radius:4px;" id="font-color-preview"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="resetBackgroundDefaults()">Reset to Default</button>
+                <button type="button" class="btn-secondary" onclick="closeBackgroundModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Apply</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Title Edit Modal -->
+<div id="title-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Page Title</h2>
+            <button class="close-btn" onclick="closeTitleModal()">&times;</button>
+        </div>
+        <form id="title-form">
+            <div class="form-group">
+                <label>Page Title</label>
+                <input type="text" id="page-title-input" required placeholder="Enter page title">
+                <div class="info-text">You can use emojis! e.g., 📋 My List, 🗂️ Reference, etc.</div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeTitleModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // ── State ──────────────────────────────────────────────────────────
+    let bookmarksData = { folders: [] };
+    let backgroundSettings = {
+        mainBgColor: '#0a0a0a',
+        folderBgColor: '#1a1a1a',
+        fontColor: '#ffffff',
+        lcarsColor: '#dd9944',
+        folderTitleColor: '#000000'
+    };
+    let pageTitle = '📋 My Bookmarks';
+    let currentIconType = 'emoji';
+    let editingBookmark = null;
+    let editingFolder = null;
+    let uploadedIconData = null;
+
+    // Drag state
+    let draggedId = null;
+    let draggedFolderId = null;
+    let isDragging = false;
+
+    // ── Init ───────────────────────────────────────────────────────────
+    function init() {
+        loadBookmarks();
+        loadBackgroundSettings();
+        loadPageTitle();
+        applyBackgroundSettings();
+        renderFolders();
+        setupEventListeners();
+
+        if (bookmarksData.folders.length === 0) {
+            bookmarksData.folders = [
+                { id: genId(), name: 'GENERAL', collapsed: false, bookmarks: [] }
+            ];
+            saveBookmarks();
+            renderFolders();
+        }
+    }
+
+    function setupEventListeners() {
+        document.addEventListener('click', () => {
+            document.getElementById('context-menu').style.display = 'none';
+        });
+
+        document.getElementById('bookmark-form').addEventListener('submit', e => {
+            e.preventDefault(); saveBookmark();
+        });
+        document.getElementById('folder-form').addEventListener('submit', e => {
+            e.preventDefault(); saveFolder();
+        });
+        document.getElementById('background-form').addEventListener('submit', e => {
+            e.preventDefault(); saveBackgroundSettings();
+        });
+        document.getElementById('title-form').addEventListener('submit', e => {
+            e.preventDefault(); savePageTitle();
+        });
+
+        document.getElementById('bookmark-icon-emoji').addEventListener('input', updateIconPreview);
+        document.getElementById('bookmark-icon-url').addEventListener('input', updateIconPreview);
+        document.getElementById('bookmark-url').addEventListener('input', updateIconPreview);
+
+        ['main-bg-color','folder-bg-color','font-color','lcars-color','folder-title-color']
+            .forEach(id => document.getElementById(id).addEventListener('input', updateBackgroundPreviews));
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────
+    function genId() {
+        return Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    function loadBookmarks() {
+        const s = localStorage.getItem('listBookmarksData');
+        if (s) bookmarksData = JSON.parse(s);
+    }
+
+    function saveBookmarks() {
+        localStorage.setItem('listBookmarksData', JSON.stringify(bookmarksData));
+    }
+
+    // ── Render ─────────────────────────────────────────────────────────
+    function renderFolders() {
+        const container = document.getElementById('folders-container');
+        container.innerHTML = '';
+
+        bookmarksData.folders.forEach((folder, fi) => {
+            const isFirst = fi === 0;
+            const isLast  = fi === bookmarksData.folders.length - 1;
+
+            const div = document.createElement('div');
+            div.className = 'folder';
+            div.innerHTML = `
+                <div class="folder-header-wrapper"
+                    oncontextmenu="event.preventDefault(); showFolderCtxMenu(event,'${folder.id}'); return false;">
+                    <div class="lcars-cap-left"></div>
+                    <div class="folder-header">
+                        <span class="folder-icon" onclick="event.stopPropagation(); toggleFolder('${folder.id}')">
+                            ${folder.collapsed ? '▶' : '▼'}
+                        </span>
+                        <span class="folder-title" onclick="toggleFolder('${folder.id}')">${folder.name}</span>
+                        <div class="folder-reorder-buttons">
+                            <button class="folder-reorder-btn" onclick="event.stopPropagation(); moveFolderUp('${folder.id}')"
+                                ${isFirst ? 'disabled' : ''} title="Move Up">▲</button>
+                            <button class="folder-reorder-btn" onclick="event.stopPropagation(); moveFolderDown('${folder.id}')"
+                                ${isLast ? 'disabled' : ''} title="Move Down">▼</button>
+                        </div>
+                    </div>
+                    <div class="lcars-cap-right"></div>
+                </div>
+                <div class="collapsible-content ${folder.collapsed ? 'collapsed' : ''}" id="folder-${folder.id}">
+                    <div class="folder-content">
+                        <div class="bookmarks-list"
+                            data-folder-id="${folder.id}"
+                            oncontextmenu="event.preventDefault(); showFolderEmptyCtxMenu(event,'${folder.id}'); return false;"
+                            ondragover="gridDragOver(event)"
+                            ondrop="gridDrop(event,'${folder.id}')">
+                            ${folder.bookmarks.length === 0
+                                ? '<div class="empty-folder">Right-click to add bookmarks</div>'
+                                : folder.bookmarks.map((bm, bi) => renderRow(bm, folder.id, bi)).join('')
+                            }
+                        </div>
+                    </div>
+                </div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function renderRow(bm, folderId, index) {
+        return `
+            <div class="bookmark-row"
+                draggable="true"
+                data-id="${bm.id}"
+                data-folder="${folderId}"
+                data-index="${index}"
+                onclick="rowClick('${bm.url}')"
+                oncontextmenu="event.preventDefault(); event.stopPropagation(); showBmCtxMenu(event,'${folderId}','${bm.id}'); return false;"
+                ondragstart="rowDragStart(event,'${folderId}','${bm.id}')"
+                ondragover="rowDragOver(event)"
+                ondrop="rowDrop(event,'${folderId}','${bm.id}')"
+                ondragend="rowDragEnd(event)">
+                <span class="drag-handle" title="Drag to reorder">⠿</span>
+                <div class="bookmark-tiny-icon">${renderTinyIcon(bm)}</div>
+                <div class="bookmark-name">${bm.name}</div>
+                <div class="bookmark-url">${bm.url}</div>
+            </div>`;
+    }
+
+    function renderTinyIcon(bm) {
+        if (bm.iconType === 'emoji' && bm.iconEmoji)
+            return bm.iconEmoji;
+        if (bm.iconType === 'upload' && bm.iconUpload)
+            return `<img src="${bm.iconUpload}" alt="">`;
+        if (bm.iconType === 'url' && bm.iconUrl)
+            return `<img src="${bm.iconUrl}" alt="" onerror="this.parentElement.innerHTML='🔗'">`;
+
+        // auto / fallback
+        if (bm.url.startsWith('http://') || bm.url.startsWith('https://')) {
+            if (bm.cachedFavicon)
+                return `<img src="${bm.cachedFavicon}" alt="" onerror="this.parentElement.innerHTML='🔗'">`;
+            try {
+                const domain = new URL(bm.url).hostname;
+                const faviconUrl = `https://icons.duckduckgo.com/ip3/${domain}.ico`;
+                setTimeout(() => cacheFavicon(bm.id, faviconUrl), 120);
+                return `<img src="${faviconUrl}" alt="" onerror="this.parentElement.innerHTML='🔗'">`;
+            } catch { return '🔗'; }
+        }
+        return '📄';
+    }
+
+    function cacheFavicon(bmId, url) {
+        let bm = null;
+        for (const f of bookmarksData.folders) {
+            bm = f.bookmarks.find(b => b.id === bmId);
+            if (bm) break;
+        }
+        if (!bm || bm.cachedFavicon) return;
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = () => {
+            try {
+                const c = document.createElement('canvas');
+                c.width = img.width; c.height = img.height;
+                c.getContext('2d').drawImage(img, 0, 0);
+                bm.cachedFavicon = c.toDataURL('image/png');
+                saveBookmarks();
+            } catch {}
+        };
+        img.src = url;
+    }
+
+    // ── Folder operations ──────────────────────────────────────────────
+    function toggleFolder(id) {
+        const f = bookmarksData.folders.find(f => f.id === id);
+        if (f) { f.collapsed = !f.collapsed; saveBookmarks(); renderFolders(); }
+    }
+
+    function moveFolderUp(id) {
+        const i = bookmarksData.folders.findIndex(f => f.id === id);
+        if (i > 0) {
+            [bookmarksData.folders[i], bookmarksData.folders[i-1]] =
+            [bookmarksData.folders[i-1], bookmarksData.folders[i]];
+            saveBookmarks(); renderFolders();
+        }
+    }
+
+    function moveFolderDown(id) {
+        const i = bookmarksData.folders.findIndex(f => f.id === id);
+        if (i < bookmarksData.folders.length - 1) {
+            [bookmarksData.folders[i], bookmarksData.folders[i+1]] =
+            [bookmarksData.folders[i+1], bookmarksData.folders[i]];
+            saveBookmarks(); renderFolders();
+        }
+    }
+
+    // ── Context Menus ──────────────────────────────────────────────────
+    function posMenu(e) {
+        const menu = document.getElementById('context-menu');
+        menu.style.display = 'block';
+        let x = e.clientX, y = e.clientY;
+        const r = menu.getBoundingClientRect();
+        if (x + r.width  > window.innerWidth)  x = window.innerWidth  - r.width  - 5;
+        if (y + r.height > window.innerHeight) y = window.innerHeight - r.height - 5;
+        menu.style.left = x + 'px';
+        menu.style.top  = y + 'px';
+    }
+
+    function showFolderCtxMenu(e, id) {
+        e.stopPropagation();
+        document.getElementById('context-menu').innerHTML = `
+            <div class="context-menu-item" onclick="addBmToFolder('${id}')">📝 New Bookmark</div>
+            <div class="context-menu-item" onclick="editFolder('${id}')">✏️ Rename Folder</div>
+            <div class="context-menu-separator"></div>
+            <div class="context-menu-item danger" onclick="deleteFolder('${id}')">🗑️ Delete Folder</div>`;
+        posMenu(e);
+    }
+
+    function showFolderEmptyCtxMenu(e, id) {
+        e.stopPropagation();
+        document.getElementById('context-menu').innerHTML = `
+            <div class="context-menu-item" onclick="addBmToFolder('${id}')">📝 New Bookmark</div>`;
+        posMenu(e);
+    }
+
+    function showBmCtxMenu(e, folderId, bmId) {
+        document.getElementById('context-menu').innerHTML = `
+            <div class="context-menu-item" onclick="editBookmark('${folderId}','${bmId}')">✏️ Edit</div>
+            <div class="context-menu-item" onclick="openNewTab('${folderId}','${bmId}')">🗗 Open in New Tab</div>
+            <div class="context-menu-separator"></div>
+            <div class="context-menu-item danger" onclick="deleteBookmark('${folderId}','${bmId}')">🗑️ Delete</div>`;
+        posMenu(e);
+    }
+
+    // ── Bookmark CRUD ──────────────────────────────────────────────────
+    function addBmToFolder(folderId) {
+        editingBookmark = null;
+        uploadedIconData = null;
+        document.getElementById('modal-title').textContent = 'New Bookmark';
+        document.getElementById('bookmark-name').value = '';
+        document.getElementById('bookmark-url').value = '';
+        document.getElementById('bookmark-icon-emoji').value = '🔗';
+        document.getElementById('bookmark-icon-url').value = '';
+        document.getElementById('bookmark-icon-upload').value = '';
+
+        const sel = document.getElementById('bookmark-folder');
+        sel.innerHTML = bookmarksData.folders.map(f =>
+            `<option value="${f.id}" ${f.id === folderId ? 'selected':''}>${f.name}</option>`).join('');
+
+        setIconType('emoji');
+        updateIconPreview();
+        document.getElementById('bookmark-modal').classList.add('active');
+    }
+
+    function editBookmark(folderId, bmId) {
+        const f  = bookmarksData.folders.find(f => f.id === folderId);
+        const bm = f.bookmarks.find(b => b.id === bmId);
+
+        editingBookmark = { folderId, bmId };
+        uploadedIconData = bm.iconUpload || null;
+        document.getElementById('modal-title').textContent = 'Edit Bookmark';
+        document.getElementById('bookmark-name').value = bm.name;
+        document.getElementById('bookmark-url').value  = bm.url;
+        document.getElementById('bookmark-icon-emoji').value = bm.iconEmoji || '🔗';
+        document.getElementById('bookmark-icon-url').value   = bm.iconUrl   || '';
+        document.getElementById('bookmark-icon-upload').value = '';
+
+        const sel = document.getElementById('bookmark-folder');
+        sel.innerHTML = bookmarksData.folders.map(f =>
+            `<option value="${f.id}" ${f.id === folderId ? 'selected':''}>${f.name}</option>`).join('');
+
+        setIconType(bm.iconType || 'emoji');
+        updateIconPreview();
+        document.getElementById('bookmark-modal').classList.add('active');
+    }
+
+    function saveBookmark() {
+        const name     = document.getElementById('bookmark-name').value;
+        const url      = document.getElementById('bookmark-url').value;
+        const folderId = document.getElementById('bookmark-folder').value;
+        const iconEmoji = document.getElementById('bookmark-icon-emoji').value;
+        const iconUrl   = document.getElementById('bookmark-icon-url').value;
+
+        const bm = {
+            id: editingBookmark ? editingBookmark.bmId : genId(),
+            name, url,
+            iconType: currentIconType,
+            iconEmoji, iconUrl,
+            iconUpload: uploadedIconData,
+            cachedFavicon: null
+        };
+
+        if (editingBookmark) {
+            const oldF = bookmarksData.folders.find(f => f.id === editingBookmark.folderId);
+            const old  = oldF.bookmarks.find(b => b.id === editingBookmark.bmId);
+            if (old && old.cachedFavicon) bm.cachedFavicon = old.cachedFavicon;
+            oldF.bookmarks = oldF.bookmarks.filter(b => b.id !== editingBookmark.bmId);
+        }
+
+        bookmarksData.folders.find(f => f.id === folderId).bookmarks.push(bm);
+        saveBookmarks(); renderFolders(); closeModal();
+    }
+
+    function deleteBookmark(folderId, bmId) {
+        if (confirm('Delete this bookmark?')) {
+            const f = bookmarksData.folders.find(f => f.id === folderId);
+            f.bookmarks = f.bookmarks.filter(b => b.id !== bmId);
+            saveBookmarks(); renderFolders();
+        }
+    }
+
+    function rowClick(url) {
+        if (!isDragging) window.location.href = url;
+        isDragging = false;
+    }
+
+    function openNewTab(folderId, bmId) {
+        const f  = bookmarksData.folders.find(f => f.id === folderId);
+        const bm = f.bookmarks.find(b => b.id === bmId);
+        window.open(bm.url, '_blank');
+    }
+
+    // ── Folder CRUD ────────────────────────────────────────────────────
+    function addFolder() {
+        editingFolder = null;
+        document.getElementById('folder-modal-title').textContent = 'New Folder';
+        document.getElementById('folder-name').value = '';
+        document.getElementById('folder-modal').classList.add('active');
+    }
+
+    function editFolder(id) {
+        const f = bookmarksData.folders.find(f => f.id === id);
+        editingFolder = id;
+        document.getElementById('folder-modal-title').textContent = 'Rename Folder';
+        document.getElementById('folder-name').value = f.name;
+        document.getElementById('folder-modal').classList.add('active');
+    }
+
+    function saveFolder() {
+        const name = document.getElementById('folder-name').value;
+        if (editingFolder) {
+            bookmarksData.folders.find(f => f.id === editingFolder).name = name;
+        } else {
+            bookmarksData.folders.push({ id: genId(), name, collapsed: false, bookmarks: [] });
+        }
+        saveBookmarks(); renderFolders(); closeFolderModal();
+    }
+
+    function deleteFolder(id) {
+        const f = bookmarksData.folders.find(f => f.id === id);
+        const msg = f.bookmarks.length > 0
+            ? `Delete folder "${f.name}" and all ${f.bookmarks.length} bookmarks?`
+            : `Delete folder "${f.name}"?`;
+        if (confirm(msg)) {
+            bookmarksData.folders = bookmarksData.folders.filter(f => f.id !== id);
+            saveBookmarks(); renderFolders();
+        }
+    }
+
+    // ── Drag & Drop (rows) ─────────────────────────────────────────────
+    function rowDragStart(e, folderId, bmId) {
+        isDragging = true;
+        draggedId = bmId;
+        draggedFolderId = folderId;
+        e.currentTarget.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function rowDragOver(e) {
+        e.preventDefault(); e.stopPropagation();
+        e.dataTransfer.dropEffect = 'move';
+        const target = e.currentTarget;
+        if (target.classList.contains('dragging')) return;
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+        const mid = target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
+        target.classList.add(e.clientY < mid ? 'insert-before' : 'insert-after');
+    }
+
+    function gridDragOver(e) {
+        e.preventDefault();
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+    }
+
+    function rowDrop(e, targetFolderId, targetBmId) {
+        e.preventDefault(); e.stopPropagation();
+        const insertAfter = e.currentTarget.classList.contains('insert-after');
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+
+        if (!draggedId || draggedId === targetBmId) return;
+
+        const srcF = bookmarksData.folders.find(f => f.id === draggedFolderId);
+        const tgtF = bookmarksData.folders.find(f => f.id === targetFolderId);
+        if (!srcF || !tgtF) return;
+
+        const si = srcF.bookmarks.findIndex(b => b.id === draggedId);
+        let   ti = tgtF.bookmarks.findIndex(b => b.id === targetBmId);
+        if (si === -1 || ti === -1) return;
+
+        const [bm] = srcF.bookmarks.splice(si, 1);
+        if (draggedFolderId === targetFolderId && si < ti) ti--;
+        if (insertAfter) ti++;
+        tgtF.bookmarks.splice(ti, 0, bm);
+
+        saveBookmarks(); renderFolders();
+    }
+
+    function gridDrop(e, folderId) {
+        e.preventDefault(); e.stopPropagation();
+        if (e.target.closest('.bookmark-row')) return;
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+        if (!draggedId) return;
+
+        const srcF = bookmarksData.folders.find(f => f.id === draggedFolderId);
+        const tgtF = bookmarksData.folders.find(f => f.id === folderId);
+        if (!srcF || !tgtF) return;
+
+        const si = srcF.bookmarks.findIndex(b => b.id === draggedId);
+        if (si === -1) return;
+        const [bm] = srcF.bookmarks.splice(si, 1);
+        tgtF.bookmarks.push(bm);
+        saveBookmarks(); renderFolders();
+    }
+
+    function rowDragEnd(e) {
+        e.target.classList.remove('dragging');
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+        draggedId = null; draggedFolderId = null;
+        setTimeout(() => { isDragging = false; }, 100);
+    }
+
+    // ── Icon handling ──────────────────────────────────────────────────
+    function setIconType(type) {
+        currentIconType = type;
+        document.querySelectorAll('.icon-option').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.icon-option').forEach(el => {
+            if ((type==='emoji'  && el.textContent==='Emoji')        ||
+                (type==='upload' && el.textContent==='Upload Image') ||
+                (type==='url'    && el.textContent==='Image URL')    ||
+                (type==='auto'   && el.textContent==='Auto (Favicon)'))
+                el.classList.add('active');
+        });
+        document.getElementById('icon-emoji-input').style.display  = type==='emoji'  ? 'block' : 'none';
+        document.getElementById('icon-upload-input').style.display = type==='upload' ? 'block' : 'none';
+        document.getElementById('icon-url-input').style.display    = type==='url'    ? 'block' : 'none';
+        updateIconPreview();
+    }
+
+    function updateIconPreview() {
+        const p = document.getElementById('icon-preview');
+        const url = document.getElementById('bookmark-url').value;
+        if (currentIconType === 'emoji') {
+            p.innerHTML = document.getElementById('bookmark-icon-emoji').value || '🔗';
+        } else if (currentIconType === 'upload') {
+            p.innerHTML = uploadedIconData ? `<img src="${uploadedIconData}" alt="">` : '📁';
+        } else if (currentIconType === 'url') {
+            const u = document.getElementById('bookmark-icon-url').value;
+            p.innerHTML = u ? `<img src="${u}" alt="" onerror="this.parentElement.innerHTML='❌'">` : '🖼️';
+        } else {
+            if (url && (url.startsWith('http://') || url.startsWith('https://'))) {
+                try {
+                    const domain = new URL(url).hostname;
+                    p.innerHTML = `<img src="https://icons.duckduckgo.com/ip3/${domain}.ico" alt="" onerror="this.parentElement.innerHTML='🔗'">`;
+                } catch { p.innerHTML = '🔗'; }
+            } else if (url) {
+                p.innerHTML = '📄';
+            } else {
+                p.innerHTML = '🔗';
+            }
+        }
+    }
+
+    function handleIconUpload(e) {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const r = new FileReader();
+            r.onload = ev => { uploadedIconData = ev.target.result; updateIconPreview(); };
+            r.readAsDataURL(file);
+        }
+    }
+
+    // ── Modal controls ─────────────────────────────────────────────────
+    function closeModal()       { document.getElementById('bookmark-modal').classList.remove('active'); editingBookmark = null; }
+    function closeFolderModal() { document.getElementById('folder-modal').classList.remove('active');  editingFolder   = null; }
+    function closeBackgroundModal() { document.getElementById('background-modal').classList.remove('active'); }
+    function closeTitleModal()  { document.getElementById('title-modal').classList.remove('active'); }
+
+    // ── Background settings ────────────────────────────────────────────
+    function loadBackgroundSettings() {
+        const s = localStorage.getItem('listBackgroundSettings');
+        if (s) backgroundSettings = JSON.parse(s);
+    }
+
+    function applyBackgroundSettings() {
+        document.documentElement.style.setProperty('--bg-color',            backgroundSettings.mainBgColor);
+        document.documentElement.style.setProperty('--folder-bg-color',     backgroundSettings.folderBgColor);
+        document.documentElement.style.setProperty('--font-color',          backgroundSettings.fontColor);
+        document.documentElement.style.setProperty('--lcars-color',         backgroundSettings.lcarsColor);
+        document.documentElement.style.setProperty('--folder-title-color',  backgroundSettings.folderTitleColor);
+    }
+
+    function openBackgroundSettings() {
+        document.getElementById('main-bg-color').value       = backgroundSettings.mainBgColor;
+        document.getElementById('folder-bg-color').value     = backgroundSettings.folderBgColor;
+        document.getElementById('font-color').value          = backgroundSettings.fontColor;
+        document.getElementById('lcars-color').value         = backgroundSettings.lcarsColor;
+        document.getElementById('folder-title-color').value  = backgroundSettings.folderTitleColor;
+        updateBackgroundPreviews();
+        document.getElementById('background-modal').classList.add('active');
+    }
+
+    function saveBackgroundSettings() {
+        const hex = /^#[0-9A-Fa-f]{6}$/;
+        const fields = [
+            ['main-bg-color','mainBgColor'],
+            ['folder-bg-color','folderBgColor'],
+            ['font-color','fontColor'],
+            ['lcars-color','lcarsColor'],
+            ['folder-title-color','folderTitleColor']
+        ];
+        for (const [id, key] of fields) {
+            const v = document.getElementById(id).value.trim();
+            if (v && !hex.test(v)) { alert(`Invalid hex color for ${key}`); return; }
+            if (v) backgroundSettings[key] = v;
+        }
+        localStorage.setItem('listBackgroundSettings', JSON.stringify(backgroundSettings));
+        applyBackgroundSettings();
+        closeBackgroundModal();
+    }
+
+    function updateBackgroundPreviews() {
+        const hex = /^#[0-9A-Fa-f]{6}$/;
+        [
+            ['main-bg-color','main-bg-preview','mainBgColor'],
+            ['folder-bg-color','folder-bg-preview','folderBgColor'],
+            ['font-color','font-color-preview','fontColor'],
+            ['lcars-color','lcars-color-preview','lcarsColor'],
+            ['folder-title-color','folder-title-color-preview','folderTitleColor']
+        ].forEach(([inputId, previewId, key]) => {
+            const v = document.getElementById(inputId).value.trim();
+            const el = document.getElementById(previewId);
+            if (el) el.style.backgroundColor = (v && hex.test(v)) ? v : backgroundSettings[key];
+        });
+    }
+
+    function resetBackgroundDefaults() {
+        backgroundSettings = {
+            mainBgColor: '#0a0a0a', folderBgColor: '#1a1a1a',
+            fontColor: '#ffffff', lcarsColor: '#dd9944', folderTitleColor: '#000000'
+        };
+        localStorage.setItem('listBackgroundSettings', JSON.stringify(backgroundSettings));
+        applyBackgroundSettings();
+        closeBackgroundModal();
+    }
+
+    // ── Page title ─────────────────────────────────────────────────────
+    function loadPageTitle() {
+        const s = localStorage.getItem('listPageTitle');
+        if (s) { pageTitle = s; document.getElementById('page-title').textContent = s; document.title = s; }
+    }
+
+    function showTitleContextMenu(e) {
+        e.stopPropagation();
+        document.getElementById('context-menu').innerHTML =
+            `<div class="context-menu-item" onclick="openTitleEdit()">✏️ Edit Page Title</div>`;
+        posMenu(e);
+    }
+
+    function openTitleEdit() {
+        document.getElementById('page-title-input').value = pageTitle;
+        document.getElementById('title-modal').classList.add('active');
+    }
+
+    function savePageTitle() {
+        const t = document.getElementById('page-title-input').value.trim();
+        if (!t) { alert('Please enter a title'); return; }
+        pageTitle = t;
+        localStorage.setItem('listPageTitle', t);
+        document.getElementById('page-title').textContent = t;
+        document.title = t;
+        closeTitleModal();
+    }
+
+    // ── Import / Export ────────────────────────────────────────────────
+    function exportBookmarks() {
+        const blob = new Blob([JSON.stringify(bookmarksData, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'list_bookmarks_' + new Date().toISOString().split('T')[0] + '.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    function importBookmarks() {
+        const input = document.createElement('input');
+        input.type = 'file';
+        input.accept = 'application/json';
+        input.onchange = e => {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    if (confirm('Import bookmarks? This will replace your current bookmarks.')) {
+                        bookmarksData = imported;
+                        saveBookmarks(); renderFolders();
+                        alert('Imported successfully!');
+                    }
+                } catch { alert('Invalid file format'); }
+            };
+            reader.readAsText(e.target.files[0]);
+        };
+        input.click();
+    }
+
+    // ── Go ─────────────────────────────────────────────────────────────
+    init();
+</script>
+</body>
+</html>

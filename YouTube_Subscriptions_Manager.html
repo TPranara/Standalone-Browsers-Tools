@@ -1,0 +1,1245 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube Subscriptions Manager</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        :root {
+            --bg-color: #0a0a0a;
+            --folder-bg-color: #1a1a1a;
+            --font-color: #ffffff;
+            --lcars-color: #cc3333;
+            --folder-title-color: #000000;
+            --unread-color: #ff4444;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: var(--bg-color);
+            min-height: 100vh;
+            padding: 20px;
+            color: var(--font-color);
+        }
+
+        /* ── Header ── */
+        .header { text-align: center; margin-bottom: 24px; }
+
+        .header h1 {
+            font-size: 1.8em;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .header h1:hover { opacity: 0.8; }
+
+        .header-buttons { margin-top: 12px; }
+
+        .btn {
+            background: rgba(255,255,255,0.15);
+            color: white;
+            border: 1px solid rgba(255,255,255,0.3);
+            padding: 7px 14px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 13px;
+            margin: 0 4px;
+            transition: all 0.2s;
+        }
+
+        .btn:hover { background: rgba(255,255,255,0.25); }
+
+        .container { max-width: 1000px; margin: 0 auto; }
+
+        /* ── Folder / LCARS ── */
+        .folder { margin-bottom: 28px; }
+
+        .folder-header-wrapper {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .lcars-cap-left {
+            width: 44px; height: 26px;
+            background: var(--lcars-color);
+            border-radius: 13px 0 0 13px;
+            flex-shrink: 0;
+        }
+
+        .lcars-cap-right {
+            width: 44px; height: 26px;
+            background: var(--lcars-color);
+            border-radius: 0 13px 13px 0;
+            flex-shrink: 0;
+        }
+
+        .folder-header {
+            flex: 1; height: 26px;
+            background: var(--lcars-color);
+            display: flex; align-items: center;
+            padding: 0 12px;
+        }
+
+        .folder-icon {
+            font-size: 11px; margin-right: 7px;
+            color: var(--folder-title-color);
+        }
+
+        .folder-title {
+            font-size: 11px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 1.5px;
+            color: var(--folder-title-color); flex: 1;
+        }
+
+        .folder-count {
+            font-size: 10px;
+            font-weight: 600;
+            color: var(--folder-title-color);
+            opacity: 0.6;
+            margin-right: 8px;
+        }
+
+        .folder-reorder-buttons { display: flex; gap: 4px; }
+
+        .folder-reorder-btn {
+            background: rgba(0,0,0,0.2);
+            border: 1px solid rgba(0,0,0,0.25);
+            color: var(--folder-title-color);
+            width: 20px; height: 20px;
+            border-radius: 3px; cursor: pointer;
+            font-size: 10px;
+            display: flex; align-items: center; justify-content: center;
+        }
+
+        .folder-reorder-btn:hover { background: rgba(0,0,0,0.4); }
+        .folder-reorder-btn:disabled { opacity: 0.3; cursor: not-allowed; }
+
+        .collapsible-content {
+            max-height: 9999px; overflow: hidden;
+            transition: max-height 0.3s ease;
+        }
+        .collapsible-content.collapsed { max-height: 0; }
+
+        /* ── List ── */
+        .folder-content {
+            background: var(--folder-bg-color);
+            border-radius: 8px; overflow: hidden;
+        }
+
+        .channels-list { display: flex; flex-direction: column; }
+
+        .channel-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 14px;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            transition: background 0.15s;
+            position: relative;
+            user-select: none;
+            cursor: pointer;
+        }
+
+        .channel-row:last-child { border-bottom: none; }
+        .channel-row:hover { background: rgba(255,255,255,0.06); }
+        .channel-row.dragging { opacity: 0.4; }
+
+        .channel-row.insert-before::before,
+        .channel-row.insert-after::after {
+            content: '';
+            position: absolute; left: 0; right: 0; height: 2px;
+            background: #2a9fc8;
+            box-shadow: 0 0 6px rgba(42,159,200,0.8);
+            z-index: 10;
+        }
+
+        .channel-row.insert-before::before { top: -1px; }
+        .channel-row.insert-after::after   { bottom: -1px; }
+
+        /* Drag handle */
+        .drag-handle {
+            color: rgba(255,255,255,0.2);
+            font-size: 13px; cursor: grab;
+            flex-shrink: 0; padding: 0 2px;
+        }
+        .drag-handle:active { cursor: grabbing; }
+
+        /* Unread dot */
+        .unread-dot {
+            width: 10px; height: 10px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1.5px solid rgba(255,255,255,0.15);
+            background: transparent;
+        }
+
+        .unread-dot.active {
+            background: var(--unread-color);
+            border-color: var(--unread-color);
+            box-shadow: 0 0 6px rgba(255,68,68,0.6);
+        }
+
+        .unread-dot:hover { border-color: rgba(255,255,255,0.5); }
+        .unread-dot.active:hover { opacity: 0.8; }
+
+        /* Avatar */
+        .channel-avatar {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            overflow: hidden;
+            background: rgba(255,255,255,0.08);
+            font-size: 14px;
+        }
+
+        .channel-avatar img {
+            width: 24px; height: 24px;
+            border-radius: 50%;
+            object-fit: cover;
+        }
+
+        /* Name + note block */
+        .channel-info {
+            display: flex;
+            flex-direction: column;
+            min-width: 140px;
+            max-width: 220px;
+            flex-shrink: 0;
+        }
+
+        .channel-name {
+            font-size: 13px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .channel-note {
+            font-size: 10px;
+            color: rgba(255,255,255,0.35);
+            font-style: italic;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-top: 1px;
+        }
+
+        /* URL */
+        .channel-url {
+            font-size: 11px;
+            color: rgba(255,255,255,0.3);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            flex: 1;
+        }
+
+        /* Last visited */
+        .channel-visited {
+            font-size: 10px;
+            color: rgba(255,255,255,0.25);
+            white-space: nowrap;
+            flex-shrink: 0;
+            min-width: 80px;
+            text-align: right;
+        }
+
+        .empty-folder {
+            padding: 20px; text-align: center;
+            color: rgba(255,255,255,0.3);
+            font-size: 13px; font-style: italic;
+        }
+
+        /* ── Context Menu ── */
+        .context-menu {
+            position: fixed;
+            background: #2d2d2d;
+            border: 1px solid #444;
+            border-radius: 5px;
+            padding: 5px 0;
+            min-width: 180px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            z-index: 10000; display: none;
+        }
+
+        .context-menu-item {
+            padding: 9px 18px; cursor: pointer;
+            font-size: 13px; color: var(--font-color);
+            display: flex; align-items: center;
+        }
+
+        .context-menu-item:hover { background: #3d3d3d; }
+        .context-menu-item.danger:hover { background: #d32f2f; }
+        .context-menu-separator { height: 1px; background: #444; margin: 4px 0; }
+
+        /* ── Modal ── */
+        .modal {
+            display: none; position: fixed; inset: 0;
+            background: rgba(0,0,0,0.75);
+            z-index: 9999; align-items: center; justify-content: center;
+        }
+
+        .modal.active { display: flex; }
+
+        .modal-content {
+            background: #2d2d2d; border-radius: 8px;
+            padding: 24px; min-width: 480px; max-width: 560px;
+            max-height: 85vh; overflow-y: auto;
+            color: var(--font-color);
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+
+        .modal-header {
+            display: flex; justify-content: space-between;
+            align-items: center; margin-bottom: 18px;
+        }
+
+        .modal-header h2 { font-size: 16px; }
+
+        .close-btn {
+            background: none; border: none; color: #fff;
+            font-size: 22px; cursor: pointer;
+            width: 28px; height: 28px; line-height: 28px;
+            text-align: center; border-radius: 4px;
+        }
+
+        .close-btn:hover { background: rgba(255,255,255,0.1); }
+
+        .form-group { margin-bottom: 16px; }
+
+        .form-group label {
+            display: block; margin-bottom: 6px;
+            font-size: 13px; font-weight: 500;
+        }
+
+        .form-group input,
+        .form-group select,
+        .form-group textarea {
+            width: 100%; padding: 9px;
+            background: #1a1a1a; border: 1px solid #444;
+            border-radius: 5px; color: var(--font-color);
+            font-size: 13px;
+        }
+
+        .form-group textarea { resize: vertical; min-height: 60px; }
+
+        .form-group input:focus,
+        .form-group select:focus,
+        .form-group textarea:focus { outline: none; border-color: #2a9fc8; }
+
+        .info-text { font-size: 11px; color: #888; margin-top: 4px; }
+
+        .avatar-options { display: flex; gap: 8px; margin-top: 8px; }
+
+        .avatar-option {
+            padding: 6px 10px;
+            background: #1a1a1a; border: 1px solid #444;
+            border-radius: 4px; cursor: pointer; font-size: 12px;
+        }
+
+        .avatar-option:hover { background: #2d2d2d; }
+        .avatar-option.active { background: #2a9fc8; border-color: #2a9fc8; }
+
+        .avatar-preview {
+            display: flex; align-items: center; gap: 12px;
+            margin-top: 12px;
+        }
+
+        .avatar-preview-box {
+            width: 48px; height: 48px;
+            border: 2px dashed #444; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 24px; overflow: hidden;
+        }
+
+        .avatar-preview-box img {
+            width: 48px; height: 48px;
+            border-radius: 50%; object-fit: cover;
+        }
+
+        .modal-footer {
+            display: flex; justify-content: flex-end;
+            gap: 8px; margin-top: 20px;
+        }
+
+        .btn-primary {
+            background: #2a9fc8; color: white; border: none;
+            padding: 9px 18px; border-radius: 5px;
+            cursor: pointer; font-size: 13px;
+        }
+
+        .btn-primary:hover { background: #238bb0; }
+
+        .btn-secondary {
+            background: #444; color: white; border: none;
+            padding: 9px 18px; border-radius: 5px;
+            cursor: pointer; font-size: 13px;
+        }
+
+        .btn-secondary:hover { background: #555; }
+
+        /* Unread legend */
+        .legend {
+            text-align: center;
+            font-size: 11px;
+            color: rgba(255,255,255,0.25);
+            margin-bottom: 16px;
+        }
+
+        .legend span { margin: 0 8px; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1 id="page-title" oncontextmenu="event.preventDefault(); showTitleCtxMenu(event); return false;">
+            📺 My Subscriptions
+        </h1>
+        <div class="header-buttons">
+            <button class="btn" onclick="addFolder()">+ New Category</button>
+            <button class="btn" onclick="exportData()">Export</button>
+            <button class="btn" onclick="importData()">Import</button>
+            <button class="btn" onclick="openBgSettings()">Background</button>
+        </div>
+    </div>
+
+    <div class="legend">
+        <span>● = has new content &nbsp;·&nbsp; click dot to toggle &nbsp;·&nbsp; click row to visit</span>
+    </div>
+
+    <div id="folders-container"></div>
+</div>
+
+<!-- Context Menu -->
+<div id="context-menu" class="context-menu"></div>
+
+<!-- Channel Modal -->
+<div id="channel-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="modal-title">New Channel</h2>
+            <button class="close-btn" onclick="closeModal()">&times;</button>
+        </div>
+        <form id="channel-form">
+            <div class="form-group">
+                <label>Channel Name</label>
+                <input type="text" id="ch-name" required placeholder="e.g. Kurzgesagt">
+            </div>
+            <div class="form-group">
+                <label>URL</label>
+                <input type="text" id="ch-url" required placeholder="https://www.youtube.com/@channelname">
+            </div>
+            <div class="form-group">
+                <label>Category</label>
+                <select id="ch-folder" required></select>
+            </div>
+            <div class="form-group">
+                <label>Note <span style="color:#888;font-weight:normal;">(optional)</span></label>
+                <textarea id="ch-note" placeholder="e.g. Uploads Tuesdays · Science animation"></textarea>
+            </div>
+            <div class="form-group">
+                <label>Avatar</label>
+                <div class="avatar-options">
+                    <div class="avatar-option active" onclick="setAvatarType('none')">None (default)</div>
+                    <div class="avatar-option" onclick="setAvatarType('upload')">Upload Image</div>
+                    <div class="avatar-option" onclick="setAvatarType('url')">Image URL</div>
+                </div>
+                <div id="avatar-upload-input" style="margin-top:8px;display:none;">
+                    <input type="file" id="ch-avatar-upload" accept="image/*" onchange="handleAvatarUpload(event)">
+                    <div class="info-text">Upload channel profile picture (PNG, JPG, etc.)</div>
+                </div>
+                <div id="avatar-url-input" style="margin-top:8px;display:none;">
+                    <input type="url" id="ch-avatar-url" placeholder="https://example.com/avatar.jpg">
+                    <div class="info-text">Paste a direct link to the channel's profile picture</div>
+                </div>
+                <div class="avatar-preview">
+                    <div class="avatar-preview-box" id="avatar-preview">📺</div>
+                    <span style="font-size:11px;color:#888;">Preview</span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Folder Modal -->
+<div id="folder-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2 id="folder-modal-title">New Category</h2>
+            <button class="close-btn" onclick="closeFolderModal()">&times;</button>
+        </div>
+        <form id="folder-form">
+            <div class="form-group">
+                <label>Category Name</label>
+                <input type="text" id="folder-name" required placeholder="e.g. SCIENCE &amp; TECH">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeFolderModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Background Settings Modal -->
+<div id="bg-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Background &amp; Theme Settings</h2>
+            <button class="close-btn" onclick="closeBgModal()">&times;</button>
+        </div>
+        <form id="bg-form">
+            <div class="form-group">
+                <label>Main Background Color</label>
+                <input type="text" id="main-bg-color" placeholder="#0a0a0a">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:36px;height:36px;border:2px solid #444;border-radius:4px;" id="prev-main"></div>
+                    <span style="font-size:11px;color:#888;">Preview</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Category Background Color</label>
+                <input type="text" id="folder-bg-color" placeholder="#1a1a1a">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:36px;height:36px;border:2px solid #444;border-radius:4px;" id="prev-folder"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>LCARS Accent Color</label>
+                <input type="text" id="lcars-color-input" placeholder="#cc3333">
+                <div class="info-text">Default is YouTube red — change to match your taste</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:36px;height:36px;border:2px solid #444;border-radius:4px;" id="prev-lcars"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Category Title Font Color</label>
+                <input type="text" id="folder-title-color-input" placeholder="#000000">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:36px;height:36px;border:2px solid #444;border-radius:4px;" id="prev-title"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Content Font Color</label>
+                <input type="text" id="font-color-input" placeholder="#ffffff">
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:36px;height:36px;border:2px solid #444;border-radius:4px;" id="prev-font"></div>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Unread Dot Color</label>
+                <input type="text" id="unread-color-input" placeholder="#ff4444">
+                <div class="info-text">Color of the ● indicator when a channel has new content</div>
+                <div style="display:flex;align-items:center;gap:8px;margin-top:8px;">
+                    <div style="width:36px;height:36px;border:2px solid #444;border-radius:4px;" id="prev-unread"></div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="resetBgDefaults()">Reset to Default</button>
+                <button type="button" class="btn-secondary" onclick="closeBgModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Apply</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Title Modal -->
+<div id="title-modal" class="modal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h2>Edit Page Title</h2>
+            <button class="close-btn" onclick="closeTitleModal()">&times;</button>
+        </div>
+        <form id="title-form">
+            <div class="form-group">
+                <label>Page Title</label>
+                <input type="text" id="page-title-input" required placeholder="📺 My Subscriptions">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn-secondary" onclick="closeTitleModal()">Cancel</button>
+                <button type="submit" class="btn-primary">Save</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    // ── Isolated localStorage namespace: "yt_" prefix ──────────────────
+    // Grid manager uses: bookmarksData, backgroundSettings, pageTitle, searchEngine
+    // List manager uses: listBookmarksData, listBackgroundSettings, listPageTitle
+    // This manager uses: yt_subsData, yt_bgSettings, yt_pageTitle
+    const LS = {
+        data:  'yt_subsData',
+        bg:    'yt_bgSettings',
+        title: 'yt_pageTitle'
+    };
+
+    // ── State ───────────────────────────────────────────────────────────
+    let subsData = { folders: [] };
+    let bgSettings = {
+        mainBgColor:       '#0a0a0a',
+        folderBgColor:     '#1a1a1a',
+        fontColor:         '#ffffff',
+        lcarsColor:        '#cc3333',
+        folderTitleColor:  '#000000',
+        unreadColor:       '#ff4444'
+    };
+    let pageTitle = '📺 My Subscriptions';
+
+    let currentAvatarType = 'none';
+    let uploadedAvatarData = null;
+    let editingChannel = null;
+    let editingFolder  = null;
+
+    let draggedId       = null;
+    let draggedFolderId = null;
+    let isDragging      = false;
+
+    // ── Init ────────────────────────────────────────────────────────────
+    function init() {
+        loadData(); loadBg(); loadTitle();
+        applyBg(); renderFolders(); setupListeners();
+
+        if (subsData.folders.length === 0) {
+            subsData.folders = [
+                { id: genId(), name: 'GENERAL', collapsed: false, channels: [] }
+            ];
+            saveData(); renderFolders();
+        }
+    }
+
+    function setupListeners() {
+        document.addEventListener('click', () => {
+            document.getElementById('context-menu').style.display = 'none';
+        });
+
+        document.getElementById('channel-form').addEventListener('submit', e => {
+            e.preventDefault(); saveChannel();
+        });
+        document.getElementById('folder-form').addEventListener('submit', e => {
+            e.preventDefault(); saveFolder();
+        });
+        document.getElementById('bg-form').addEventListener('submit', e => {
+            e.preventDefault(); saveBgSettings();
+        });
+        document.getElementById('title-form').addEventListener('submit', e => {
+            e.preventDefault(); savePageTitle();
+        });
+
+        document.getElementById('ch-avatar-url').addEventListener('input', updateAvatarPreview);
+        document.getElementById('ch-url').addEventListener('input', updateAvatarPreview);
+
+        ['main-bg-color','folder-bg-color','lcars-color-input',
+         'folder-title-color-input','font-color-input','unread-color-input']
+            .forEach(id => document.getElementById(id).addEventListener('input', updateBgPreviews));
+    }
+
+    // ── Helpers ─────────────────────────────────────────────────────────
+    function genId() {
+        return 'yt_' + Date.now().toString(36) + Math.random().toString(36).substr(2);
+    }
+
+    function loadData() {
+        const s = localStorage.getItem(LS.data);
+        if (s) subsData = JSON.parse(s);
+    }
+
+    function saveData() {
+        localStorage.setItem(LS.data, JSON.stringify(subsData));
+    }
+
+    // Relative time display
+    function relativeTime(isoString) {
+        if (!isoString) return '—';
+        const diff = Date.now() - new Date(isoString).getTime();
+        const mins  = Math.floor(diff / 60000);
+        const hours = Math.floor(diff / 3600000);
+        const days  = Math.floor(diff / 86400000);
+        const weeks = Math.floor(days / 7);
+        const months = Math.floor(days / 30);
+
+        if (mins  <  2)  return 'just now';
+        if (mins  < 60)  return `${mins}m ago`;
+        if (hours <  24) return `${hours}h ago`;
+        if (days  ===1)  return 'yesterday';
+        if (days  <  7)  return `${days}d ago`;
+        if (weeks < 5)   return `${weeks}w ago`;
+        if (months < 12) return `${months}mo ago`;
+        return `${Math.floor(months/12)}yr ago`;
+    }
+
+    // ── Render ──────────────────────────────────────────────────────────
+    function renderFolders() {
+        const container = document.getElementById('folders-container');
+        container.innerHTML = '';
+
+        subsData.folders.forEach((folder, fi) => {
+            const isFirst = fi === 0;
+            const isLast  = fi === subsData.folders.length - 1;
+            const unreadCount = folder.channels.filter(c => c.unread).length;
+
+            const div = document.createElement('div');
+            div.className = 'folder';
+            div.innerHTML = `
+                <div class="folder-header-wrapper"
+                    oncontextmenu="event.preventDefault(); showFolderCtxMenu(event,'${folder.id}'); return false;">
+                    <div class="lcars-cap-left"></div>
+                    <div class="folder-header">
+                        <span class="folder-icon"
+                            onclick="event.stopPropagation(); toggleFolder('${folder.id}')">
+                            ${folder.collapsed ? '▶' : '▼'}
+                        </span>
+                        <span class="folder-title"
+                            onclick="toggleFolder('${folder.id}')">${folder.name}</span>
+                        ${unreadCount > 0
+                            ? `<span class="folder-count">${unreadCount} new</span>`
+                            : ''}
+                        <div class="folder-reorder-buttons">
+                            <button class="folder-reorder-btn"
+                                onclick="event.stopPropagation(); moveFolderUp('${folder.id}')"
+                                ${isFirst ? 'disabled':''} title="Move Up">▲</button>
+                            <button class="folder-reorder-btn"
+                                onclick="event.stopPropagation(); moveFolderDown('${folder.id}')"
+                                ${isLast ? 'disabled':''} title="Move Down">▼</button>
+                        </div>
+                    </div>
+                    <div class="lcars-cap-right"></div>
+                </div>
+                <div class="collapsible-content ${folder.collapsed ? 'collapsed':''}"
+                    id="folder-${folder.id}">
+                    <div class="folder-content">
+                        <div class="channels-list"
+                            data-folder-id="${folder.id}"
+                            oncontextmenu="event.preventDefault(); event.stopPropagation(); showFolderEmptyCtxMenu(event,'${folder.id}'); return false;"
+                            ondragover="gridDragOver(event)"
+                            ondrop="gridDrop(event,'${folder.id}')">
+                            ${folder.channels.length === 0
+                                ? '<div class="empty-folder">Right-click to add a channel</div>'
+                                : folder.channels.map((ch, ci) => renderRow(ch, folder.id, ci)).join('')
+                            }
+                        </div>
+                    </div>
+                </div>`;
+            container.appendChild(div);
+        });
+    }
+
+    function renderRow(ch, folderId, index) {
+        const avatarHtml = ch.avatarData
+            ? `<img src="${ch.avatarData}" alt="">`
+            : '📺';
+
+        return `
+            <div class="channel-row"
+                draggable="true"
+                data-id="${ch.id}"
+                data-folder="${folderId}"
+                data-index="${index}"
+                onclick="rowClick(event,'${ch.id}','${folderId}','${ch.url}')"
+                oncontextmenu="event.preventDefault(); event.stopPropagation();
+                    showChCtxMenu(event,'${folderId}','${ch.id}'); return false;"
+                ondragstart="rowDragStart(event,'${folderId}','${ch.id}')"
+                ondragover="rowDragOver(event)"
+                ondrop="rowDrop(event,'${folderId}','${ch.id}')"
+                ondragend="rowDragEnd(event)">
+                <span class="drag-handle" title="Drag to reorder">⠿</span>
+                <div class="unread-dot ${ch.unread ? 'active' : ''}"
+                    title="${ch.unread ? 'Mark as watched' : 'Mark as has new content'}"
+                    onclick="event.stopPropagation(); toggleUnread('${folderId}','${ch.id}')"></div>
+                <div class="channel-avatar">${avatarHtml}</div>
+                <div class="channel-info">
+                    <div class="channel-name">${ch.name}</div>
+                    ${ch.note ? `<div class="channel-note">${ch.note}</div>` : ''}
+                </div>
+                <div class="channel-url">${ch.url}</div>
+                <div class="channel-visited">${relativeTime(ch.lastVisited)}</div>
+            </div>`;
+    }
+
+    // ── Folder operations ───────────────────────────────────────────────
+    function toggleFolder(id) {
+        const f = subsData.folders.find(f => f.id === id);
+        if (f) { f.collapsed = !f.collapsed; saveData(); renderFolders(); }
+    }
+
+    function moveFolderUp(id) {
+        const i = subsData.folders.findIndex(f => f.id === id);
+        if (i > 0) {
+            [subsData.folders[i], subsData.folders[i-1]] =
+            [subsData.folders[i-1], subsData.folders[i]];
+            saveData(); renderFolders();
+        }
+    }
+
+    function moveFolderDown(id) {
+        const i = subsData.folders.findIndex(f => f.id === id);
+        if (i < subsData.folders.length - 1) {
+            [subsData.folders[i], subsData.folders[i+1]] =
+            [subsData.folders[i+1], subsData.folders[i]];
+            saveData(); renderFolders();
+        }
+    }
+
+    // ── Context menus ───────────────────────────────────────────────────
+    function posMenu(e) {
+        const menu = document.getElementById('context-menu');
+        menu.style.display = 'block';
+        let x = e.clientX, y = e.clientY;
+        const r = menu.getBoundingClientRect();
+        if (x + r.width  > window.innerWidth)  x = window.innerWidth  - r.width  - 5;
+        if (y + r.height > window.innerHeight) y = window.innerHeight - r.height - 5;
+        menu.style.left = x + 'px';
+        menu.style.top  = y + 'px';
+    }
+
+    function showFolderCtxMenu(e, id) {
+        e.stopPropagation();
+        document.getElementById('context-menu').innerHTML = `
+            <div class="context-menu-item" onclick="addChannelTo('${id}')">📺 New Channel</div>
+            <div class="context-menu-item" onclick="editFolder('${id}')">✏️ Rename Category</div>
+            <div class="context-menu-separator"></div>
+            <div class="context-menu-item danger" onclick="deleteFolder('${id}')">🗑️ Delete Category</div>`;
+        posMenu(e);
+    }
+
+    function showFolderEmptyCtxMenu(e, id) {
+        e.stopPropagation();
+        document.getElementById('context-menu').innerHTML = `
+            <div class="context-menu-item" onclick="addChannelTo('${id}')">📺 New Channel</div>`;
+        posMenu(e);
+    }
+
+    function showChCtxMenu(e, folderId, chId) {
+        document.getElementById('context-menu').innerHTML = `
+            <div class="context-menu-item" onclick="editChannel('${folderId}','${chId}')">✏️ Edit</div>
+            <div class="context-menu-item" onclick="openNewTab('${folderId}','${chId}')">🗗 Open in New Tab</div>
+            <div class="context-menu-separator"></div>
+            <div class="context-menu-item danger" onclick="deleteChannel('${folderId}','${chId}')">🗑️ Delete</div>`;
+        posMenu(e);
+    }
+
+    // ── Channel CRUD ────────────────────────────────────────────────────
+    function addChannelTo(folderId) {
+        editingChannel = null;
+        uploadedAvatarData = null;
+        document.getElementById('modal-title').textContent = 'New Channel';
+        document.getElementById('ch-name').value  = '';
+        document.getElementById('ch-url').value   = '';
+        document.getElementById('ch-note').value  = '';
+        document.getElementById('ch-avatar-url').value = '';
+        document.getElementById('ch-avatar-upload').value = '';
+
+        const sel = document.getElementById('ch-folder');
+        sel.innerHTML = subsData.folders.map(f =>
+            `<option value="${f.id}" ${f.id === folderId ? 'selected':''}>${f.name}</option>`
+        ).join('');
+
+        setAvatarType('none');
+        document.getElementById('channel-modal').classList.add('active');
+    }
+
+    function editChannel(folderId, chId) {
+        const f  = subsData.folders.find(f => f.id === folderId);
+        const ch = f.channels.find(c => c.id === chId);
+
+        editingChannel = { folderId, chId };
+        uploadedAvatarData = ch.avatarType === 'upload' ? ch.avatarData : null;
+
+        document.getElementById('modal-title').textContent = 'Edit Channel';
+        document.getElementById('ch-name').value  = ch.name;
+        document.getElementById('ch-url').value   = ch.url;
+        document.getElementById('ch-note').value  = ch.note || '';
+        document.getElementById('ch-avatar-url').value   = ch.avatarType === 'url' ? ch.avatarData : '';
+        document.getElementById('ch-avatar-upload').value = '';
+
+        const sel = document.getElementById('ch-folder');
+        sel.innerHTML = subsData.folders.map(f =>
+            `<option value="${f.id}" ${f.id === folderId ? 'selected':''}>${f.name}</option>`
+        ).join('');
+
+        setAvatarType(ch.avatarType || 'none');
+        document.getElementById('channel-modal').classList.add('active');
+    }
+
+    function saveChannel() {
+        const name     = document.getElementById('ch-name').value.trim();
+        const url      = document.getElementById('ch-url').value.trim();
+        const folderId = document.getElementById('ch-folder').value;
+        const note     = document.getElementById('ch-note').value.trim();
+
+        // Determine final avatar data
+        let avatarData = null;
+        if (currentAvatarType === 'upload' && uploadedAvatarData) {
+            avatarData = uploadedAvatarData;
+        } else if (currentAvatarType === 'url') {
+            avatarData = document.getElementById('ch-avatar-url').value.trim() || null;
+        }
+
+        const ch = {
+            id:          editingChannel ? editingChannel.chId : genId(),
+            name, url, note,
+            avatarType:  currentAvatarType,
+            avatarData,
+            unread:      editingChannel
+                            ? subsData.folders.find(f=>f.id===editingChannel.folderId)
+                                ?.channels.find(c=>c.id===editingChannel.chId)?.unread || false
+                            : false,
+            lastVisited: editingChannel
+                            ? subsData.folders.find(f=>f.id===editingChannel.folderId)
+                                ?.channels.find(c=>c.id===editingChannel.chId)?.lastVisited || null
+                            : null
+        };
+
+        if (editingChannel) {
+            const oldF = subsData.folders.find(f => f.id === editingChannel.folderId);
+            oldF.channels = oldF.channels.filter(c => c.id !== editingChannel.chId);
+        }
+
+        subsData.folders.find(f => f.id === folderId).channels.push(ch);
+        saveData(); renderFolders(); closeModal();
+    }
+
+    function deleteChannel(folderId, chId) {
+        if (confirm('Delete this channel?')) {
+            const f = subsData.folders.find(f => f.id === folderId);
+            f.channels = f.channels.filter(c => c.id !== chId);
+            saveData(); renderFolders();
+        }
+    }
+
+    function toggleUnread(folderId, chId) {
+        const f  = subsData.folders.find(f => f.id === folderId);
+        const ch = f.channels.find(c => c.id === chId);
+        if (ch) { ch.unread = !ch.unread; saveData(); renderFolders(); }
+    }
+
+    function rowClick(e, chId, folderId, url) {
+        if (isDragging) { isDragging = false; return; }
+        // Update last visited
+        const f  = subsData.folders.find(f => f.id === folderId);
+        const ch = f?.channels.find(c => c.id === chId);
+        if (ch) { ch.lastVisited = new Date().toISOString(); saveData(); }
+        window.location.href = url;
+    }
+
+    function openNewTab(folderId, chId) {
+        const f  = subsData.folders.find(f => f.id === folderId);
+        const ch = f.channels.find(c => c.id === chId);
+        // Update last visited
+        ch.lastVisited = new Date().toISOString();
+        saveData();
+        window.open(ch.url, '_blank');
+    }
+
+    // ── Folder CRUD ─────────────────────────────────────────────────────
+    function addFolder() {
+        editingFolder = null;
+        document.getElementById('folder-modal-title').textContent = 'New Category';
+        document.getElementById('folder-name').value = '';
+        document.getElementById('folder-modal').classList.add('active');
+    }
+
+    function editFolder(id) {
+        editingFolder = id;
+        document.getElementById('folder-modal-title').textContent = 'Rename Category';
+        document.getElementById('folder-name').value =
+            subsData.folders.find(f => f.id === id).name;
+        document.getElementById('folder-modal').classList.add('active');
+    }
+
+    function saveFolder() {
+        const name = document.getElementById('folder-name').value.trim();
+        if (editingFolder) {
+            subsData.folders.find(f => f.id === editingFolder).name = name;
+        } else {
+            subsData.folders.push({ id: genId(), name, collapsed: false, channels: [] });
+        }
+        saveData(); renderFolders(); closeFolderModal();
+    }
+
+    function deleteFolder(id) {
+        const f = subsData.folders.find(f => f.id === id);
+        const msg = f.channels.length > 0
+            ? `Delete "${f.name}" and all ${f.channels.length} channels?`
+            : `Delete "${f.name}"?`;
+        if (confirm(msg)) {
+            subsData.folders = subsData.folders.filter(f => f.id !== id);
+            saveData(); renderFolders();
+        }
+    }
+
+    // ── Avatar handling ─────────────────────────────────────────────────
+    function setAvatarType(type) {
+        currentAvatarType = type;
+        document.querySelectorAll('.avatar-option').forEach(el => el.classList.remove('active'));
+        document.querySelectorAll('.avatar-option').forEach(el => {
+            if ((type==='none'   && el.textContent.trim().startsWith('None'))   ||
+                (type==='upload' && el.textContent.trim().startsWith('Upload')) ||
+                (type==='url'    && el.textContent.trim().startsWith('Image')))
+                el.classList.add('active');
+        });
+        document.getElementById('avatar-upload-input').style.display =
+            type === 'upload' ? 'block' : 'none';
+        document.getElementById('avatar-url-input').style.display =
+            type === 'url' ? 'block' : 'none';
+        updateAvatarPreview();
+    }
+
+    function updateAvatarPreview() {
+        const p = document.getElementById('avatar-preview');
+        if (currentAvatarType === 'upload') {
+            p.innerHTML = uploadedAvatarData
+                ? `<img src="${uploadedAvatarData}" alt="">`
+                : '📁';
+        } else if (currentAvatarType === 'url') {
+            const u = document.getElementById('ch-avatar-url').value.trim();
+            p.innerHTML = u
+                ? `<img src="${u}" alt="" onerror="this.parentElement.innerHTML='❌'">`
+                : '🖼️';
+        } else {
+            p.innerHTML = '📺';
+        }
+    }
+
+    function handleAvatarUpload(e) {
+        const file = e.target.files[0];
+        if (file && file.type.startsWith('image/')) {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                uploadedAvatarData = ev.target.result;
+                updateAvatarPreview();
+            };
+            reader.readAsDataURL(file);
+        }
+    }
+
+    // ── Drag & Drop ─────────────────────────────────────────────────────
+    function rowDragStart(e, folderId, chId) {
+        isDragging = true;
+        draggedId = chId; draggedFolderId = folderId;
+        e.currentTarget.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+    }
+
+    function rowDragOver(e) {
+        e.preventDefault(); e.stopPropagation();
+        const target = e.currentTarget;
+        if (target.classList.contains('dragging')) return;
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+        const mid = target.getBoundingClientRect().top + target.getBoundingClientRect().height / 2;
+        target.classList.add(e.clientY < mid ? 'insert-before' : 'insert-after');
+    }
+
+    function gridDragOver(e) {
+        e.preventDefault();
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+    }
+
+    function rowDrop(e, targetFolderId, targetChId) {
+        e.preventDefault(); e.stopPropagation();
+        const insertAfter = e.currentTarget.classList.contains('insert-after');
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+        if (!draggedId || draggedId === targetChId) return;
+
+        const srcF = subsData.folders.find(f => f.id === draggedFolderId);
+        const tgtF = subsData.folders.find(f => f.id === targetFolderId);
+        if (!srcF || !tgtF) return;
+
+        const si = srcF.channels.findIndex(c => c.id === draggedId);
+        let   ti = tgtF.channels.findIndex(c => c.id === targetChId);
+        if (si === -1 || ti === -1) return;
+
+        const [ch] = srcF.channels.splice(si, 1);
+        if (draggedFolderId === targetFolderId && si < ti) ti--;
+        if (insertAfter) ti++;
+        tgtF.channels.splice(ti, 0, ch);
+
+        saveData(); renderFolders();
+    }
+
+    function gridDrop(e, folderId) {
+        e.preventDefault(); e.stopPropagation();
+        if (e.target.closest('.channel-row')) return;
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+        if (!draggedId) return;
+
+        const srcF = subsData.folders.find(f => f.id === draggedFolderId);
+        const tgtF = subsData.folders.find(f => f.id === folderId);
+        if (!srcF || !tgtF) return;
+
+        const si = srcF.channels.findIndex(c => c.id === draggedId);
+        if (si === -1) return;
+        const [ch] = srcF.channels.splice(si, 1);
+        tgtF.channels.push(ch);
+        saveData(); renderFolders();
+    }
+
+    function rowDragEnd(e) {
+        e.target.classList.remove('dragging');
+        document.querySelectorAll('.insert-before,.insert-after').forEach(el =>
+            el.classList.remove('insert-before','insert-after'));
+        draggedId = null; draggedFolderId = null;
+        setTimeout(() => { isDragging = false; }, 100);
+    }
+
+    // ── Modal controls ──────────────────────────────────────────────────
+    function closeModal()       { document.getElementById('channel-modal').classList.remove('active'); editingChannel = null; }
+    function closeFolderModal() { document.getElementById('folder-modal').classList.remove('active');  editingFolder  = null; }
+    function closeBgModal()     { document.getElementById('bg-modal').classList.remove('active'); }
+    function closeTitleModal()  { document.getElementById('title-modal').classList.remove('active'); }
+
+    // ── Background settings ─────────────────────────────────────────────
+    function loadBg() {
+        const s = localStorage.getItem(LS.bg);
+        if (s) bgSettings = JSON.parse(s);
+    }
+
+    function applyBg() {
+        document.documentElement.style.setProperty('--bg-color',           bgSettings.mainBgColor);
+        document.documentElement.style.setProperty('--folder-bg-color',    bgSettings.folderBgColor);
+        document.documentElement.style.setProperty('--font-color',         bgSettings.fontColor);
+        document.documentElement.style.setProperty('--lcars-color',        bgSettings.lcarsColor);
+        document.documentElement.style.setProperty('--folder-title-color', bgSettings.folderTitleColor);
+        document.documentElement.style.setProperty('--unread-color',       bgSettings.unreadColor);
+    }
+
+    function openBgSettings() {
+        document.getElementById('main-bg-color').value          = bgSettings.mainBgColor;
+        document.getElementById('folder-bg-color').value        = bgSettings.folderBgColor;
+        document.getElementById('font-color-input').value       = bgSettings.fontColor;
+        document.getElementById('lcars-color-input').value      = bgSettings.lcarsColor;
+        document.getElementById('folder-title-color-input').value = bgSettings.folderTitleColor;
+        document.getElementById('unread-color-input').value     = bgSettings.unreadColor;
+        updateBgPreviews();
+        document.getElementById('bg-modal').classList.add('active');
+    }
+
+    function saveBgSettings() {
+        const hex = /^#[0-9A-Fa-f]{6}$/;
+        const fields = [
+            ['main-bg-color',            'mainBgColor'],
+            ['folder-bg-color',          'folderBgColor'],
+            ['font-color-input',         'fontColor'],
+            ['lcars-color-input',        'lcarsColor'],
+            ['folder-title-color-input', 'folderTitleColor'],
+            ['unread-color-input',       'unreadColor']
+        ];
+        for (const [id, key] of fields) {
+            const v = document.getElementById(id).value.trim();
+            if (v && !hex.test(v)) { alert(`Invalid hex color for ${key}`); return; }
+            if (v) bgSettings[key] = v;
+        }
+        localStorage.setItem(LS.bg, JSON.stringify(bgSettings));
+        applyBg(); closeBgModal();
+    }
+
+    function updateBgPreviews() {
+        const hex = /^#[0-9A-Fa-f]{6}$/;
+        [
+            ['main-bg-color',            'prev-main',   'mainBgColor'],
+            ['folder-bg-color',          'prev-folder', 'folderBgColor'],
+            ['lcars-color-input',        'prev-lcars',  'lcarsColor'],
+            ['folder-title-color-input', 'prev-title',  'folderTitleColor'],
+            ['font-color-input',         'prev-font',   'fontColor'],
+            ['unread-color-input',       'prev-unread', 'unreadColor']
+        ].forEach(([inputId, prevId, key]) => {
+            const v  = document.getElementById(inputId).value.trim();
+            const el = document.getElementById(prevId);
+            if (el) el.style.backgroundColor = (v && hex.test(v)) ? v : bgSettings[key];
+        });
+    }
+
+    function resetBgDefaults() {
+        bgSettings = {
+            mainBgColor: '#0a0a0a', folderBgColor: '#1a1a1a',
+            fontColor: '#ffffff', lcarsColor: '#cc3333',
+            folderTitleColor: '#000000', unreadColor: '#ff4444'
+        };
+        localStorage.setItem(LS.bg, JSON.stringify(bgSettings));
+        applyBg(); closeBgModal();
+    }
+
+    // ── Page title ──────────────────────────────────────────────────────
+    function loadTitle() {
+        const s = localStorage.getItem(LS.title);
+        if (s) {
+            pageTitle = s;
+            document.getElementById('page-title').textContent = s;
+            document.title = s;
+        }
+    }
+
+    function showTitleCtxMenu(e) {
+        e.stopPropagation();
+        document.getElementById('context-menu').innerHTML =
+            `<div class="context-menu-item" onclick="openTitleEdit()">✏️ Edit Page Title</div>`;
+        posMenu(e);
+    }
+
+    function openTitleEdit() {
+        document.getElementById('page-title-input').value = pageTitle;
+        document.getElementById('title-modal').classList.add('active');
+    }
+
+    function savePageTitle() {
+        const t = document.getElementById('page-title-input').value.trim();
+        if (!t) { alert('Please enter a title'); return; }
+        pageTitle = t;
+        localStorage.setItem(LS.title, t);
+        document.getElementById('page-title').textContent = t;
+        document.title = t;
+        closeTitleModal();
+    }
+
+    // ── Import / Export ─────────────────────────────────────────────────
+    function exportData() {
+        const blob = new Blob([JSON.stringify(subsData, null, 2)], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'yt_subs_' + new Date().toISOString().split('T')[0] + '.json';
+        a.click();
+        URL.revokeObjectURL(a.href);
+    }
+
+    function importData() {
+        const input = document.createElement('input');
+        input.type = 'file'; input.accept = 'application/json';
+        input.onchange = e => {
+            const reader = new FileReader();
+            reader.onload = ev => {
+                try {
+                    const imported = JSON.parse(ev.target.result);
+                    if (confirm('Import subscriptions? This will replace your current data.')) {
+                        subsData = imported;
+                        saveData(); renderFolders();
+                        alert('Imported successfully!');
+                    }
+                } catch { alert('Invalid file format'); }
+            };
+            reader.readAsText(e.target.files[0]);
+        };
+        input.click();
+    }
+
+    // ── Go ──────────────────────────────────────────────────────────────
+    init();
+</script>
+</body>
+</html>
